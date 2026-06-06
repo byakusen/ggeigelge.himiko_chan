@@ -103,13 +103,17 @@
     border:5px solid var(--kin);
     box-shadow:0 0 0 4px var(--sumi),0 10px 30px rgba(0,0,0,.5);
     position:relative;
-    transition:transform .25s;
   }
-  .face img{
+  .face .mouth{
+    position:absolute;inset:0;
     width:100%;height:100%;
     object-fit:cover;
     display:block;
   }
+  .face .mouth.closed{z-index:1;}              /* 口を閉じた絵：いつも見えている */
+  .face .mouth.open{z-index:2;opacity:0;}      /* 口を開けた絵：ふだんは透明で重ねておく */
+  .face.talking-open .mouth.open{opacity:1;}   /* しゃべる瞬間だけ見える */
+  .face.no-img .mouth{display:none;}
   .face-fallback{
     display:none;
     width:100%;height:100%;
@@ -120,8 +124,6 @@
     background:radial-gradient(circle at 50% 38%, #5a3f22, #1b1410);
   }
   .face.no-img .face-fallback{display:flex;}
-  .face.talk{animation:nod .6s ease;}
-  @keyframes nod{0%,100%{transform:translateY(0)}30%{transform:translateY(6px) rotate(-2deg)}60%{transform:translateY(0) rotate(2deg)}}
   .name-tag{
     margin-top:10px;font-family:'Yuji Syuku',serif;
     font-size:clamp(16px,2vw,24px);color:var(--kin-akarui);letter-spacing:.1em;
@@ -293,8 +295,13 @@
     <div class="stage">
       <div class="himiko">
         <div class="face" id="face">
-          <img src="https://raw.githubusercontent.com/byakusen/ggeoge.himiko_illust/main/himiko.png" alt="卑弥呼"
-               onerror="this.style.display='none';this.parentNode.classList.add('no-img');">
+          <img class="mouth closed"
+               src="https://raw.githubusercontent.com/byakusen/ggeoge.himiko_illust/main/himiko.png"
+               alt="卑弥呼（口を閉じた絵）"
+               onerror="this.closest('.face').classList.add('no-img');">
+          <img class="mouth open"
+               src="https://raw.githubusercontent.com/byakusen/ggeigelge.himiko_chan/main/himiko2.png"
+               alt="" aria-hidden="true">
           <span class="face-fallback">卑<br>弥<br>呼</span>
         </div>
         <div class="name-tag">卑弥呼</div>
@@ -969,8 +976,20 @@ const GREET = "やあ、わらわが卑弥呼じゃ。邪馬台国を治めた�
 const answerEl = document.getElementById('answer');
 const faceEl = document.getElementById('face');
 let typing=null;
+
+// ===== 口パク（しゃべっている間だけ口を動かす） =====
+let mouthTimer=null;
+function startMouth(){
+  stopMouth();                                   // 念のため前の動きを止める
+  mouthTimer=setInterval(()=>{ faceEl.classList.toggle('talking-open'); },130); // 0.13秒ごとに開け閉め
+}
+function stopMouth(){
+  if(mouthTimer){ clearInterval(mouthTimer); mouthTimer=null; }
+  faceEl.classList.remove('talking-open');       // 最後は口を閉じた絵にもどす
+}
+
 function speak(text){
-  faceEl.classList.remove('talk'); void faceEl.offsetWidth; faceEl.classList.add('talk');
+  startMouth();                                  // しゃべりはじめ
   if(typing) clearInterval(typing);
   answerEl.innerHTML="";
   let i=0;
@@ -978,7 +997,7 @@ function speak(text){
   cursor.className='cursor'; cursor.textContent='　';
   answerEl.appendChild(cursor);
   typing=setInterval(()=>{
-    if(i>=text.length){clearInterval(typing); cursor.remove(); return;}
+    if(i>=text.length){clearInterval(typing); cursor.remove(); stopMouth(); return;} // しゃべりおわり
     const ch=document.createTextNode(text[i]);
     answerEl.insertBefore(ch,cursor);
     i++;
